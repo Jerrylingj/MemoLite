@@ -34,7 +34,7 @@ class SmartMemoryAgent:
         print(f"\n用户输入: {user_input}")
         print(f"分析中……")
 
-        memories_to_store = self.extract_memories_with_llm(user_input)
+        memories_to_store = self._extract_memories_with_llm(user_input)
 
         # 存储提取的记忆
         if memories_to_store:
@@ -45,7 +45,7 @@ class SmartMemoryAgent:
 
 
 
-    def extract_memories_with_llm(self, user_input: str):
+    def _extract_memories_with_llm(self, user_input: str):
         """使用 LLM 提取记忆, 判断能否由用户当前输入拿到什么有价值的东西"""
 
         prompt = EXTRACTION_PROMPT.format(user_input=user_input)
@@ -62,14 +62,22 @@ class SmartMemoryAgent:
         # 转换为 MemoryItem
         memories = []
         for mem in memories_data:
+            # 处理 temporal_validity - 从字符串转换为 datetime
+            temporal_validity = None
+            if mem.get("temporal_validity"):
+                try:
+                    temporal_validity = datetime.fromisoformat(mem["temporal_validity"])
+                except (ValueError, TypeError):
+                    temporal_validity = None
+            
             memory = MemoryItem(
                 content=mem["content"],
                 memory_type=MemoryType[mem["memory_type"]],
                 importance=mem["importance"],
                 timestamp=datetime.now(),
                 confidence=mem["confidence"],
-                
-                
+                temporal_validity=temporal_validity,
+                metadata=mem.get("metadata")
             )
             memories.append(memory)
         return memories
@@ -88,7 +96,7 @@ class SmartMemoryAgent:
         # 存储到各个系统
         self.priority_manager.store(memory)
         self.vector_store.add(memory) # 存到向量数据库方便语义检索
-        key = f"{memory.memory_type.value}_{datetime.now().timestamp}_{memory.metadata}" # 加上 metadata 防止相同类型记忆冲突了
+        key = f"{memory.memory_type.value}_{datetime.now().timestamp()}_{str(memory.metadata)}" # 加上 metadata 防止相同类型记忆冲突了
         self.update_manager.add_or_update(key, memory)
         print()
 
