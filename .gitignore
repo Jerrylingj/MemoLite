@@ -2,3 +2,4 @@
 .env
 __pycache__
 plan.md
+.DS_Store
